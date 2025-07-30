@@ -34,59 +34,66 @@
 
     let markers = [];
 
-    const url = "https://opensheet.vercel.app/1vvcetFFagMr0uPYJ7sYnWVmT3lYXIKWF/Hospitales";
+    const sheetUrl = "https://opensheet.vercel.app/1vvcetFFagMr0uPYJ7sYnWVmT3lYXIKWF/Hospitales";
 
+    // Función para verificar conectividad real (mediante HEAD a la URL)
     async function checkConnectivity(hospitalUrl) {
+      if (!hospitalUrl) return false;
       try {
-        // Hacemos una solicitud GET a la URL del hospital
-        const response = await fetch(hospitalUrl, { method: 'HEAD' });  // Método HEAD para verificar solo la respuesta del servidor
-        return response.ok;  // Si la respuesta es 2xx (exitoso), devuelve true
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4000); // 4 segundos de espera
+        await fetch(hospitalUrl, {
+          method: 'HEAD',
+          mode: 'no-cors',  // Evita errores CORS visibles
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+        return true;
       } catch (error) {
-        return false;  // Si ocurre un error (por ejemplo, no se puede conectar), devuelve false
+        return false;
       }
     }
 
     async function updateMap() {
-  const data = await fetch(url)
-    .then(res => res.json());
+      const data = await fetch(sheetUrl).then(res => res.json());
 
-  markers.forEach(m => map.removeLayer(m)); // Limpiar los marcadores viejos
-  markers = [];
+      markers.forEach(m => map.removeLayer(m));
+      markers = [];
 
-  for (const est of data) {
-    // Aquí verifiquemos si el hospital está "conectado"
-    const conectado = est.conectado === "TRUE" || est.conectado === true;
+      for (const est of data) {
+        const lat = parseFloat(est.lat);
+        const lng = parseFloat(est.lng);
+        const nombre = est.nombre || "Sin nombre";
+        const hospitalUrl = est.url;
 
-    // Si el hospital tiene conectividad marcada como TRUE, usamos el ícono de ✔️
-    const iconHtml = conectado ? '✔️' : '❌';  // Usar ✔️ para conectado y ❌ para desconectado
+        const conectado = await checkConnectivity(hospitalUrl);
 
-    const icon = L.divIcon({
-      className: 'custom-icon',
-      html: iconHtml,  // Usar el ícono de texto
-      iconSize: [30, 30]  // Tamaño del ícono
-    });
+        const icon = L.divIcon({
+          className: 'custom-icon',
+          html: conectado ? '✔️' : '❌',
+          iconSize: [30, 30]
+        });
 
-    const marker = L.marker([parseFloat(est.lat), parseFloat(est.lng)], { icon })
-      .bindPopup(`<b>${est.nombre}</b><br>Conectividad: ${conectado ? '✅ Disponible' : '❌ No disponible'}`)
-      .addTo(map);
+        const marker = L.marker([lat, lng], { icon })
+          .bindPopup(`<b>${nombre}</b><br>
+                      Conectividad: ${conectado ? '✅ Disponible' : '❌ No disponible'}<br>
+                      ${hospitalUrl ? `<a href="${hospitalUrl}" target="_blank">${hospitalUrl}</a>` : 'Sin URL'}`)
+          .addTo(map);
 
-    markers.push(marker);
-  }
-}
-
+        markers.push(marker);
+      }
+    }
 
     updateMap();
-    setInterval(updateMap, 5 * 60 * 1000); // actualiza cada 5 minutos
+    setInterval(updateMap, 5 * 60 * 1000); // actualizar cada 5 minutos
 
-    // Crear la leyenda
+    // Leyenda visual
     var legend = L.control({ position: 'topright' });
-
     legend.onAdd = function (map) {
       var div = L.DomUtil.create('div', 'info legend');
       div.innerHTML = '<b>Conectividad:</b><br><span style="color: green;">✔️ Conectado</span><br><span style="color: red;">❌ Desconectado</span>';
       return div;
     };
-
     legend.addTo(map);
   </script>
 </body>

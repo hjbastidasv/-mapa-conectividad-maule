@@ -47,32 +47,33 @@
     }
 
     async function updateMap() {
-      const data = await fetch(url)
-        .then(res => res.json());
+  const data = await fetch(url)
+    .then(res => res.json());
 
-      markers.forEach(m => map.removeLayer(m)); // Limpiar los marcadores viejos
-      markers = [];
+  markers.forEach(m => map.removeLayer(m)); // Limpiar los marcadores viejos
+  markers = [];
 
-      for (const est of data) {
-        const conectado = est.conectado === "TRUE" || est.conectado === true;
-        
-        // Si no está marcado como conectado, verificamos la conectividad real
-        const esConectadoReal = conectado ? true : await checkConnectivity(est.url);
-        const color = esConectadoReal ? 'green' : 'red';
+  for (const est of data) {
+    // Aquí verifiquemos si el hospital está "conectado"
+    const conectado = est.conectado === "TRUE" || est.conectado === true;
 
-        const icon = L.divIcon({
-          className: 'custom-icon',
-          html: esConectadoReal ? '✔️' : '❌',  // Usamos ✔️ para conectado y ❌ para desconectado
-          iconSize: [30, 30]  // Tamaño del ícono
-        });
+    // Si el hospital tiene conectividad marcada como TRUE, usamos el ícono de ✔️
+    const iconHtml = conectado ? '✔️' : '❌';  // Usar ✔️ para conectado y ❌ para desconectado
 
-        const marker = L.marker([parseFloat(est.lat), parseFloat(est.lng)], { icon })
-          .bindPopup(`<b>${est.nombre}</b><br>Conectividad: ${esConectadoReal ? '✅ Disponible' : '❌ No disponible'}`)
-          .addTo(map);
+    const icon = L.divIcon({
+      className: 'custom-icon',
+      html: iconHtml,  // Usar el ícono de texto
+      iconSize: [30, 30]  // Tamaño del ícono
+    });
 
-        markers.push(marker);
-      }
-    }
+    const marker = L.marker([parseFloat(est.lat), parseFloat(est.lng)], { icon })
+      .bindPopup(`<b>${est.nombre}</b><br>Conectividad: ${conectado ? '✅ Disponible' : '❌ No disponible'}`)
+      .addTo(map);
+
+    markers.push(marker);
+  }
+}
+
 
     updateMap();
     setInterval(updateMap, 5 * 60 * 1000); // actualiza cada 5 minutos
